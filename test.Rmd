@@ -1,0 +1,453 @@
+---
+title: "Assignment for April 16"
+author: "Byung-Deuk Woo"
+date: "04/16/2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Set up "nycflights13" and "tidyverse"
+```{nycflights13 tidyverse, warning=FALSE}
+library(nycflights13)
+library(tidyverse)
+nycflights13::flights
+View(flights)
+```
+
+#5.2 Exercises#
+#1.1~1.7#
+```{1, warning=FALSE}
+filter(flights, arr_delay >= 120)
+filter(flights, dest == "IAH" | dest == "HOU")
+filter(flights, carrier %in% c("AA", "DL", "UA"))
+filter(flights, month >= 7, month <= 9)
+filter(flights, arr_delay > 120, dep_delay <= 0)
+filter(flights, dep_delay >= 60, dep_delay - arr_delay > 30)
+filter(flights, dep_time <= 600 | dep_time == 2400)
+```
+
+#2#
+```{2, warning=FALSE}
+filter(flights, between(month, 7, 9))
+```
+
+#3#
+```{3, warning=FALSE}
+filter(flights, is.na(dep_time))
+```
+
+#4#
+NA ^ 0 == 1 since for all numeric values x^0 = 1.
+NA | TRUE is TRUE because the value of the missing TRUE or FALSE, x or TRUE is TURE for all values of x.
+Why is FALSE & NA not missing? It is becuase the value of the missing element matters in NA | FALSE and NA & TURE.
+It is becuase x multiplied by infinite is undefined.
+
+#5.3 Exercises#
+#1#
+```{4, warning=FALSE}
+arrange(flights, desc(is.na(dep_time)), dep_time)
+```
+
+#2#
+```{5, warning=FALSE}
+arrange(flights, desc(dep_delay))
+```
+
+#3#
+```{6, warning=FALSE}
+arrange(flights, air_time)
+```
+
+#4#
+```{7, warning=FALSE}
+arrange(flights, desc(distance))
+```
+
+
+#5.4 Exercises#
+#1#
+```{8, warning=FALSE}
+select(flights, "dep_time", "dep_delay", "arr_time", "arr_delay")
+```
+
+
+#2#
+It does not show an error becuase it deals with duplicated variables.
+```{9, warning=FALSE}
+select(flights, year, month, day, year, year)
+```
+
+
+#3#
+It selects variables with a character vetor rather than unquoted variable name arguments.
+It is helpful because it helps us to generate character vectors with variables names.
+```{10, warning=FALSE}
+vars <- c("year", "month", "day", "dep_delay", "arr_delay")
+select(flights, one_of(vars))
+```
+
+
+#4#
+```{11, warning=FALSE}
+select(flights, contains("TIME"))
+```
+
+
+#5.5 Exercises#
+#1#
+```{11, warning=FALSE}
+1504 %/% 100
+1504 %% 100
+1504 %/% 100 * 60 + 1504 %% 100
+
+flights_times <- mutate(flights,
+                        dep_time_mins = (dep_time %/% 100 * 60 + dep_time %% 100) %% 1440,
+                        sched_dep_time_mins = (sched_dep_time %/% 100 * 60 +
+                                                 sched_dep_time %% 100) %% 1440
+)
+
+select(
+  flights_times, dep_time, dep_time_mins, sched_dep_time,
+  sched_dep_time_mins
+)
+```
+
+
+#2#
+air_time will be equal to arr_time - dep_time
+```{12, warning=FALSE}
+flights_airtime <-
+  mutate(flights,
+    dep_time = (dep_time %/% 100 * 60 + dep_time %% 100) %% 1440,
+    arr_time = (arr_time %/% 100 * 60 + arr_time %% 100) %% 1440,
+    air_time_diff = air_time - arr_time + dep_time
+  )
+
+nrow(filter(flights_airtime, air_time_diff != 0))
+```
+The above commands show that arr_time != arr_time - dep_time.
+It is because time zone. Moreover, it is related to the codings of those three variables.
+
+#3#
+It can be expected that dep_time - sched_dep_time = dep_delay.
+
+#4#
+```{13, warning=FALSE}
+rankme <- tibble(
+  x = c(10, 5, 1, 5, 5)
+)
+
+arrange(rankme, x)
+```
+
+#5.6 Exercises#
+#1#
+The one thing that we have to pick the most important variable is related to our theory.
+If we worry about airplane crash or missing, arrival delay is more important than departure delay.
+
+#2#
+```{14, warning=FALSE}
+not_cancelled <- flights %>%
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+
+not_cancelled %>%
+  count(dest)
+  
+not_cancelled %>%
+  group_by(dest) %>%
+  summarise(n = length(dest))
+
+not_cancelled %>%
+  count(tailnum, wt = distance)
+
+not_cancelled %>%
+  group_by(tailnum) %>%
+  summarise(n = sum(distance))
+
+not_cancelled %>%
+  group_by(tailnum) %>%
+  tally(distance)
+```
+
+
+#3#
+For example, flight cannot arrive if it did not depart. The most important one is arr_delay because there are severe bad senarios. 
+
+
+#4#
+```{15, warning=FALSE}
+cancelled_delayed <-
+  flights %>%
+  mutate(cancelled = (is.na(arr_delay) | is.na(dep_delay))) %>%
+  group_by(month, day) %>%
+  summarise(
+    prop_cancelled = mean(cancelled),
+    avg_dep_delay = mean(dep_delay, na.rm = TRUE)
+  )
+
+ggplot(cancelled_delayed, aes(x = avg_dep_delay, prop_cancelled)) +
+  geom_point() +
+  geom_smooth()
+```
+Yes, there is a pattern. When avg_dep_delay increases prop_cancelled increases.
+
+#5.7.1 Exercises#
+#1#
+Mutate and filtering functions operate within each group rather than over the entire data frame.
+
+#2#
+```{16, warning=FALSE}
+flights %>%
+  filter(!is.na(tailnum)) %>%
+  mutate(on_time = !is.na(arr_time) & (arr_delay <= 0)) %>%
+  select(tailnum, on_time, arr_time, arr_delay) %>%
+  group_by(tailnum) %>%
+  summarise(on_time = mean(on_time), n = n()) %>%
+  filter(min_rank(on_time) == 1)
+
+quantile(count(flights, tailnum)$n)
+
+flights %>%
+  filter(!is.na(tailnum)) %>%
+  mutate(on_time = !is.na(arr_time) & (arr_delay <= 0)) %>%
+  select(tailnum, on_time, arr_time, arr_delay) %>%
+  group_by(tailnum) %>%
+  summarise(on_time = mean(on_time), n = n()) %>%
+  filter(n >= 20) %>%
+  filter(min_rank(on_time) == 1)
+
+flights %>%
+  group_by(tailnum) %>%
+  summarise(arr_delay = mean(arr_delay), n = n()) %>%
+  filter(n >= 20) %>%
+  filter(min_rank(desc(arr_delay)) == 1)
+```
+The above commands deal with "proportion of lights not delayed or cancelled" and "mean arrival delay". 
+
+#3#
+```{17, warning=FALSE}
+flights %>%
+  group_by(hour) %>%
+  summarise(arr_delay = mean(arr_delay, na.rm = TRUE)) %>%
+  arrange(arr_delay)
+```
+Through the above command, we can see which time has lowest expected delay.
+
+#4#
+```{18, warning=FALSE}
+flights %>%
+  filter(arr_delay > 0) %>%
+  group_by(dest) %>%
+  mutate(
+    arr_delay_total = sum(arr_delay),
+    arr_delay_prop = arr_delay / arr_delay_total
+  ) %>%
+  select(
+    dest, month, day, dep_time, carrier, flight,
+    arr_delay, arr_delay_prop
+  ) %>%
+  arrange(dest, desc(arr_delay_prop))
+```
+
+
+#12.2 Exercises#
+#1#
+```{19, warning=FALSE}
+table1
+table2
+table3
+table4a
+table4b
+```
+Table 1 shows the country year data.
+Table 2 shows the country year variable data.
+Table 3 shows the country year and rate (cases/population) data.
+Table 4a shows the cases.
+Table 4b shows the values of population.
+
+#2#
+```{20, warning=FALSE}
+t2_cases <- filter(table2, type == "cases") %>%
+  rename(cases = count) %>%
+  arrange(country, year)
+t2_population <- filter(table2, type == "population") %>%
+  rename(population = count) %>%
+  arrange(country, year)
+
+t2_cases_per_cap <- tibble(
+  year = t2_cases$year,
+  country = t2_cases$country,
+  cases = t2_cases$cases,
+  population = t2_population$population
+) %>%
+  mutate(cases_per_cap = (cases / population) * 10000) %>%
+  select(country, year, cases_per_cap)
+
+2_cases_per_cap <- t2_cases_per_cap %>%
+  mutate(type = "cases_per_cap") %>%
+  rename(count = cases_per_cap)
+
+bind_rows(table2, t2_cases_per_cap) %>%
+  arrange(country, year, type, count)
+
+table4c <-
+  tibble(
+    country = table4a$country,
+    `1999` = table4a[["1999"]] / table4b[["1999"]] * 10000,
+    `2000` = table4a[["2000"]] / table4b[["2000"]] * 10000
+  )
+```
+The table 4c shows the cases per capita.
+
+#3#
+```{21, warning=FALSE}
+table2 %>%
+  filter(type == "cases") %>%
+  ggplot(aes(year, count)) +
+  geom_line(aes(group = country), colour = "grey50") +
+  geom_point(aes(colour = country)) +
+  scale_x_continuous(breaks = unique(table2$year)) +
+  ylab("cases")
+```
+
+
+#12.3 Exercises#
+#1#
+It is because when we use gather() command, it discards the original column types.
+However, spread() function does not know the original data types of the variables.
+
+#2#
+It fails becuase the column names of 1999 and 2000 are not non-syntactic variable names.
+
+#3#
+It fails because name and key columns do not uniquely identify rows.
+```{22, warning=FALSE}
+people <- tribble(
+  ~name, ~key, ~value,
+  #-----------------|--------|------
+  "Phillip Woods", "age", 45,
+  "Phillip Woods", "height", 186,
+  "Phillip Woods", "age", 50,
+  "Jessica Cordero", "age", 37,
+  "Jessica Cordero", "height", 156
+)
+glimpse(people)
+spread(people, key, value)
+
+people2 <- people %>%
+  group_by(name, key) %>%
+  mutate(obs = row_number())
+people2
+spread(people2, key, value)
+people %>%
+  distinct(name, key, .keep_all = TRUE) %>%
+  spread(key, value)
+```
+The above commands can solve the problem.
+
+#4#
+In order to tidy the preg tibble, we have to use gather(). 
+Sex, pregnant, and count are the variables in the data.
+
+#12.4 Exercises#
+#1#
+extra tells separate() what to do if there are too many pieces, and the fill tells it what to do if there aren't enought. separate() basically drops extra values with a warning. Below are the examples.
+```{23, warning=FALSE}
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>%
+  separate(x, c("one", "two", "three"))
+
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>%
+  separate(x, c("one", "two", "three"), extra = "drop")
+
+tibble(x = c("a,b,c", "d,e,f,g", "h,i,j")) %>%
+  separate(x, c("one", "two", "three"), extra = "merge")
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>%
+  separate(x, c("one", "two", "three"))
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>%
+  separate(x, c("one", "two", "three"), fill = "right")
+
+tibble(x = c("a,b,c", "d,e", "f,g,i")) %>%
+  separate(x, c("one", "two", "three"), fill = "left")
+```
+
+#2#
+remove discards input columns in the result data frame. 
+
+#3#
+separate function splits a column into multiple columns by separator. 
+extract uses a regular expression to specify groups in character vector and split that single character vector into multiple columns.
+
+#12.5 Exercises#
+#1#
+Fill in spread() sets the value to replace NAs.
+On the other hand, fill in complete() sets a value to replace NAs but it is named lists. Therefore, it allows for different values for different variables. 
+
+#2#
+direction commands with fill() determines whether NA values should be replace by the previous non-missing value.
+
+#12.6 Exercises#
+#1#
+There are zeros and there are missing values too. We can check this by using codes below.
+```{24, warning=FALSE}
+who1 %>%
+  filter(cases == 0) %>%
+  nrow()
+
+gather(who, new_sp_m014:newrel_f65, key = "key", value = "cases") %>%
+  group_by(country, year) %>%
+  mutate(prop_missing = sum(is.na(cases)) / n()) %>%
+  filter(prop_missing > 0, prop_missing < 1)
+
+nrow(who)
+who %>%
+  complete(country, year) %>%
+  nrow()
+```
+
+Moreover, we can use the below commands for checking what implicit missing values are.
+```{25, warning=FALSE}
+anti_join(complete(who, country, year), who, by = c("country", "year")) %>%
+  select(country, year) %>%
+  group_by(country) %>%
+  # so I can make better sense of the years
+  summarise(min_year = min(year), max_year = max(year))
+```
+0 means no cases in this dataset.
+Explicit missing values are used to missing data for country and year.
+Implicit missing values represent missing data when a country does not exist in that year.
+
+#2#
+```{26, warning=FALSE}
+who3a <- who1 %>%
+  separate(key, c("new", "type", "sexage"), sep = "_")
+filter(who3a, new == "newrel") %>% head()
+```
+When we neglect the mutate() step, there will be a warning message "too few values".
+
+#3#
+```{26, warning=FALSE}
+select(who3, country, iso2, iso3) %>%
+  distinct() %>%
+  group_by(country) %>%
+  filter(n() > 1)
+```
+We can use the above commands for confirming the claim. 
+
+#4#
+```{26, warning=FALSE}
+who5 %>%
+  group_by(country, year, sex) %>%
+  filter(year > 1995) %>%
+  summarise(cases = sum(cases)) %>%
+  unite(country_sex, country, sex, remove = FALSE) %>%
+  ggplot(aes(x = year, y = cases, group = country_sex, colour = sex)) +
+  geom_line()
+```
+The above commands makes me possible to see the visualization of the data with time, sex, and cases.
+
+For doing this homework, I refer the follow site. "http://jrnold.github.io"
